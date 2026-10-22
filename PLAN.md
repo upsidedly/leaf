@@ -1,6 +1,6 @@
 # Leaf — release plan
 
-Status: implementation, native verification and local installation complete; final GitHub publication authorized. Matthew gave an explicit **go**, approved additions 1, 2, 5, 6, 7, 9 and 10, and required HTML rendering in MD/MDX. Continue through verification, local installation and the GitHub push.
+Status: complete. Verified release installed locally and published to https://github.com/upsidedly/leaf. Matthew gave an explicit **go**, approved additions 1, 2, 5, 6, 7, 9 and 10, and required HTML rendering in MD/MDX. Continue through verification, local installation and the GitHub push.
 
 ## Product
 
@@ -54,4 +54,4 @@ Approved: 1, 2, 5, 6, 7, 9 and 10. Not selected: Vim mode, Git UI, bibliography/
 - [x] Integrate offline diagrams, math and code rendering.
 - [x] Add workspace navigation, writing tools and exports.
 - [x] Exercise and repair the complete native workflows.
-- [ ] Install the verified app, finish documentation and push the completed project to GitHub.
+- [x] Install the verified app, finish documentation and push the completed project to GitHub.

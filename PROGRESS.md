@@ -2,7 +2,7 @@
 
 ## Current state
 
-Implementation, integration repairs, rendered inspection and local release installation are complete. GitHub publication to Upsidedly/leaf is the final delivery step. Native verdict: ACCEPT for the evidence scope in Docs/verification.md.
+Implementation, integration repairs, rendered inspection, local installation and GitHub publication are complete. Source: https://github.com/upsidedly/leaf. Native verdict: ACCEPT for the evidence scope in Docs/verification.md.
 
 ## Delivered
 
