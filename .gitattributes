@@ -1,0 +1,4 @@
+# Keep third-party notices and generated engine bytes unchanged.
+Vendor/** -whitespace
+Licenses/** -whitespace
+Sources/LeafRender/Resources/** -whitespace
