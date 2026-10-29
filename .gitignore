@@ -5,3 +5,19 @@ node_modules/
 *.xcuserstate
 .swiftpm/
 *.log
+
+# Local development instructions and work journals
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+CODEX.md
+PLAN.md
+PLANS.md
+PROGRESS.md
+HANDOFF.md
+CONTEXT.md
+.agents/
+.claude/
+.codex/
+.cursor/
+/Docs/verification.md
