@@ -141,6 +141,7 @@ enum NativeCheckFailure: Error, LocalizedError {
         editor.scrollRangeToVisible(.init(location:0,length:0))
         try snapshot(window,to:output.appendingPathComponent("leaf-editor.png"))
         for check in try await DocumentExporter.checkExports(in:output.appendingPathComponent("Exports")) { record(check) }
+        for check in try await clipboard(in:output.appendingPathComponent("Clipboard")) { record(check) }
         return checks
     }
     static func settle(line: Int = #line, _ predicate: @escaping @MainActor () -> Bool) async throws {

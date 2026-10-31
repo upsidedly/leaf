@@ -20,14 +20,21 @@ import LeafCore
         }
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if let flag = CommandLine.arguments.firstIndex(of: "--check-native") {
+        if let flag = CommandLine.arguments.firstIndex(where: { $0 == "--check-native" || $0 == "--check-clipboard" }) {
             let output = CommandLine.arguments.count > flag + 1 ? URL(fileURLWithPath:CommandLine.arguments[flag + 1]) : FileManager.default.temporaryDirectory.appendingPathComponent("LeafNativeChecks")
             Task { @MainActor in
                 let watchdog = Task { @MainActor in
                     do { try await Task.sleep(for:.seconds(180)); FileHandle.standardError.write(Data("FAIL Native checks exceeded 180 seconds.\n".utf8)); exit(2) } catch { }
                 }
                 defer { watchdog.cancel() }
-                do { let checks = try await LeafNativeChecks.run(in: output); print("PASS \(checks.count) native workflow checks"); exit(0) }
+                do {
+                    let checks: [String]
+                    if CommandLine.arguments.contains("--check-clipboard") {
+                        checks = try await LeafNativeChecks.clipboard(in: output)
+                        for check in checks { print("PASS \(check)") }
+                    } else { checks = try await LeafNativeChecks.run(in: output) }
+                    print("PASS \(checks.count) native workflow checks"); exit(0)
+                }
                 catch { FileHandle.standardError.write(Data("FAIL \(error.localizedDescription)\n".utf8)); exit(1) }
             }
             return
@@ -154,50 +161,28 @@ import LeafCore
     }
 }
 
-@MainActor final class LeafWindowController: NSWindowController, NSToolbarDelegate {
+@MainActor final class LeafWindowController: NSWindowController {
     let model: DocumentModel
     init(model: DocumentModel) {
         self.model = model
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.minSize = NSSize(width: 640, height: 440); window.title = model.title
         window.tabbingMode = .preferred; window.tabbingIdentifier = "LeafDocuments"; window.isRestorable = true
-        window.toolbarStyle = .unified; window.titlebarAppearsTransparent = true
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.backgroundColor = LeafStyle.color("background", model.settings, fallback: .textBackgroundColor)
         window.contentView = NSHostingView(rootView: DocumentView(model: model))
         super.init(window: window)
-        let toolbar = NSToolbar(identifier: "LeafWritingToolbar"); toolbar.delegate = self; toolbar.displayMode = .iconOnly; toolbar.allowsUserCustomization = true; toolbar.autosavesConfiguration = true
-        window.toolbar = toolbar; window.center()
-        if !CommandLine.arguments.contains("--check-native") { window.setFrameAutosaveName("LeafDocumentWindow") }
+        // Keep AppKit's document title, file menu, traffic lights, and tabs.
+        // The accessory fits the controls into one row without a full toolbar.
+        let titlebar = NSTitlebarAccessoryViewController()
+        titlebar.layoutAttribute = .trailing
+        let controls = NSHostingView(rootView: DocumentTitlebar(model: model))
+        controls.frame = NSRect(x: 0, y: 0, width: 120, height: 28)
+        titlebar.view = controls
+        window.addTitlebarAccessoryViewController(titlebar)
+        window.center()
+        if !CommandLine.arguments.contains("--check-native") && !CommandLine.arguments.contains("--check-clipboard") { window.setFrameAutosaveName("LeafDocumentWindow") }
     }
     required init?(coder: NSCoder) { nil }
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [.init("sidebar"), .flexibleSpace, .init("mode"), .init("diagram"), .init("inspector"), .init("actions")] }
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { toolbarDefaultItemIdentifiers(toolbar) + [.space] }
-    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        let item = NSToolbarItem(itemIdentifier: identifier)
-        let value = identifier.rawValue
-        if value == "mode" {
-            let menu = NSMenu()
-            for mode in EditorMode.allCases {
-                let choice = NSMenuItem(title: mode.rawValue, action: #selector(LeafAppDelegate.menuAction(_:)), keyEquivalent: "")
-                choice.target = NSApp.delegate; choice.representedObject = "mode.\(mode.rawValue.lowercased())"; menu.addItem(choice)
-            }
-            let button = NSPopUpButton(frame: .zero, pullsDown: true)
-            button.addItem(withTitle: "View"); button.menu?.items.first?.image = NSImage(systemSymbolName: "text.alignleft", accessibilityDescription: "View mode")
-            for child in menu.items { menu.removeItem(child); button.menu?.addItem(child) }
-            button.bezelStyle = .texturedRounded; button.setAccessibilityLabel("View mode"); item.view = button; item.label = "View"; return item
-        }
-        if value == "actions" {
-            let menu = NSMenu()
-            for (title, action) in [("Command Palette…","palette"),("Find in Folder…","search"),("Asset Manager…","assets"),("Export…","export")] {
-                let entry = NSMenuItem(title: title, action: #selector(LeafAppDelegate.menuAction(_:)), keyEquivalent: ""); entry.target = NSApp.delegate; entry.representedObject = action; menu.addItem(entry)
-            }
-            let button = NSPopUpButton(frame: .zero, pullsDown: true); button.addItem(withTitle: ""); button.menu?.items.first?.image = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "More actions")
-            for entry in menu.items { menu.removeItem(entry); button.menu?.addItem(entry) }
-            button.bezelStyle = .texturedRounded; button.setAccessibilityLabel("More actions"); item.view = button; item.label = "Actions"; return item
-        }
-        let names = ["sidebar": ("sidebar.left", "Sidebar"), "diagram": ("point.3.connected.trianglepath.dotted", "Diagram canvas"), "inspector": ("sidebar.right", "Inspector")]
-        guard let (symbol, label) = names[value] else { return nil }
-        item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label); item.label = label; item.toolTip = label
-        item.target = self; item.action = #selector(toolbarAction(_:)); return item
-    }
-    @objc private func toolbarAction(_ sender: NSToolbarItem) { (NSApp.delegate as? LeafAppDelegate)?.perform(sender.itemIdentifier.rawValue) }
 }

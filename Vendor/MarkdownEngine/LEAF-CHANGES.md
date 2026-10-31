@@ -13,5 +13,6 @@ Based on nodes-app/swift-markdown-engine revision `3d3636a0cc850927609ad95e112ac
 - Add native image drag/drop through the existing host paste hook. The host persists an asset before inserting its relative Markdown reference.
 - Add configurable heading/code fonts, heading color, focus presentation and custom-caret visibility. Synchronize reading-column width at runtime.
 - Load code-highlighter resources from standard sealed-app bundle locations. Make debug performance tracing opt-in and remove unused-variable/selector warnings.
+- Preserve typed newlines in rich clipboard formats, and retain exact leading/trailing whitespace and repeated blank lines when copying and pasting Markdown or plain text.
 
 Leaf's integration and native regression checks live in `Sources/Leaf/LeafNativeChecks*.swift`. The primary text storage retains original characters; presentation is derived styling, native images and layout attributes.

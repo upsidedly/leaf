@@ -81,7 +81,7 @@ struct DocumentView: View {
         }.background(.background.secondary)
     }
     private var footer: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             if let status = model.status {
                 Text(status).lineLimit(1).foregroundStyle(.secondary)
                 Button { model.status = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Dismiss status")
@@ -94,7 +94,7 @@ struct DocumentView: View {
             if model.typewriterMode { Text("Typewriter").foregroundStyle(.secondary) }
             if model.rendering { ProgressView().controlSize(.mini).scaleEffect(0.75).accessibilityLabel("Rendering") }
             Text(model.fileURL?.pathExtension.uppercased() ?? "MD").foregroundStyle(.tertiary)
-            Menu(model.mode.rawValue) { ForEach(EditorMode.allCases) { mode in Button(mode.rawValue) { model.mode = mode } } }.menuStyle(.borderlessButton).fixedSize()
+            Menu(model.mode.rawValue) { ForEach(EditorMode.allCases) { mode in Button(mode.rawValue) { model.mode = mode } } }.menuStyle(.borderlessButton).controlSize(.small).fixedSize()
         }.font(.system(size: 10.5)).padding(.horizontal, 14).frame(height: 27)
             .background(Color(nsColor: .windowBackgroundColor))
     }

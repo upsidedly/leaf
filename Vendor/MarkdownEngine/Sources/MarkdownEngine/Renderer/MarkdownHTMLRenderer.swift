@@ -86,8 +86,14 @@ public enum MarkdownHTMLRenderer {
             let l = min(max(level, 1), 6)
             return "<h\(l)>\(renderInlines(inlines, ns: ns, env: env))</h\(l)>"
 
-        case .paragraph(_, let inlines):
-            return "<p>\(renderInlines(inlines, ns: ns, env: env))</p>"
+        case .paragraph(let range, let inlines):
+            var body = renderInlines(inlines, ns: ns, env: env)
+            // The paragraph boundary already contributes this final newline.
+            // Interior newlines remain explicit breaks in rich clipboard data.
+            if ns.substring(with: range).last?.isNewline == true, body.hasSuffix("<br>") {
+                body.removeLast(4)
+            }
+            return "<p>\(body)</p>"
 
         case .blockquote(let range, _):
             return renderBlockquote(range: range, ns: ns, env: env)
@@ -107,8 +113,9 @@ public enum MarkdownHTMLRenderer {
         case .thematicBreak:
             return "<hr>"
 
-        case .blank:
-            return nil
+        case .blank(let range):
+            let count = ns.substring(with: range).filter(\.isNewline).count
+            return count > 0 ? String(repeating: "<br>", count: count) : nil
 
         case .ext(let node):
             guard let ext = env.byID[node.extensionID] else {
@@ -126,11 +133,12 @@ public enum MarkdownHTMLRenderer {
     /// Blockquote inlines are parsed over the block range *including* the `> `
     /// markers, so strip the markers per line and re-parse the content clean.
     private static func renderBlockquote(range: NSRange, ns: NSString, env: Env) -> String {
-        let raw = ns.substring(with: range)
+        var raw = ns.substring(with: range)
+        if raw.last?.isNewline == true { raw.removeLast() }
         let stripped = raw
-            .components(separatedBy: "\n")
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .components(separatedBy: .newlines)
             .map(stripQuoteMarkers)
-            .filter { !$0.isEmpty }
             .joined(separator: "\n")
         let inlines = InlineParser.parse(stripped, registry: env.registry)
         return "<blockquote>\(renderInlines(inlines, ns: stripped as NSString, env: env))</blockquote>"
@@ -274,10 +282,10 @@ public enum MarkdownHTMLRenderer {
         switch node {
         case .text(let r):
             let s = ns.substring(with: r)
-            return linkable ? escapeAndAutolink(s) : escape(s)
+            return escapeInlineText(s, linkable: linkable)
 
         case .code(_, let content):
-            return "<code>\(escape(ns.substring(with: content)))</code>"
+            return "<code>\(escapeInlineText(ns.substring(with: content), linkable: false))</code>"
 
         case .emphasis(let kind, _, _, let children):
             let inner = renderInlines(children, ns: ns, env: env, linkable: linkable)
@@ -328,6 +336,16 @@ public enum MarkdownHTMLRenderer {
     }
 
     // MARK: - Autolinking
+
+    /// Rich paste targets collapse literal HTML whitespace. Use real breaks
+    /// for typed newlines; split before escaping/linkifying so attributes and
+    /// fenced code never acquire injected HTML or altered line endings.
+    private static func escapeInlineText(_ text: String, linkable: Bool) -> String {
+        text.replacingOccurrences(of: "\r\n", with: "\n")
+            .components(separatedBy: .newlines)
+            .map { linkable ? escapeAndAutolink($0) : escape($0) }
+            .joined(separator: "<br>")
+    }
 
     // Built once: rebuilding the detector per render is the styler's documented
     // 43ms trap (ENG-8g1b).
